@@ -12,6 +12,9 @@ COPY requirements.txt .
 # 安装依赖
 RUN pip install --no-cache-dir -r requirements.txt
 
+# 确保gunicorn已安装
+RUN pip install gunicorn
+
 # 复制应用代码
 COPY . .
 
@@ -22,4 +25,4 @@ RUN mkdir -p downloads && chmod 755 downloads
 EXPOSE 8000
 
 # 启动命令
-CMD gunicorn --worker-class eventlet -w 1 --bind 0.0.0.0:8000 app:app
+CMD ["gunicorn", "--worker-class", "eventlet", "-w", "1", "--bind", "0.0.0.0:8000", "app:app"]
