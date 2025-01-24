@@ -1,6 +1,6 @@
 Flask==3.0.0
 Flask-SocketIO==5.3.6
-yt-dlp==2024.1.19
+yt-dlp>=2023.12.30
 python-socketio==5.11.0
 eventlet==0.33.3
 gunicorn==21.2.0
