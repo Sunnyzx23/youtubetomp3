@@ -102,20 +102,40 @@ def download_and_convert(url, task_id):
             'prefer_ffmpeg': True,
             'progress_hooks': [ProgressHook(task_id)],
             'outtmpl': f'{task_dir}/%(title)s.%(ext)s',
-            'nocheckcertificate': True,
             'verbose': True,
-            'logtostderr': True
+            'no_warnings': False,
+            'nocheckcertificate': True,
+            'geo_bypass': True,
+            'extractor_retries': 3,
+            'retries': 5,
+            'socket_timeout': 30,
+            'user_agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
+            'http_headers': {
+                'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
+                'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8',
+                'Accept-Language': 'en-us,en;q=0.5',
+            },
+            'logtostderr': True,
+            'quiet': False
         }
         
         # 打印调试信息
         logger.info(f"Current working directory: {os.getcwd()}")
         logger.info(f"Task directory: {task_dir}")
+        logger.info(f"Starting download with options: {ydl_opts}")
         
         # 下载文件
         with yt_dlp.YoutubeDL(ydl_opts) as ydl:
             logger.info("Starting download with yt-dlp...")
-            info = ydl.extract_info(url, download=True)
-            title = info['title']
+            try:
+                info = ydl.extract_info(url, download=True)
+                if not info:
+                    raise Exception("Failed to extract video info")
+                title = info['title']
+                logger.info(f"Successfully extracted video info: {title}")
+            except Exception as e:
+                logger.error(f"Error during video extraction: {str(e)}")
+                raise
             
         # 找到下载的音频文件
         downloaded_file = None
@@ -159,6 +179,8 @@ def download_and_convert(url, task_id):
             error_message = 'Video is unavailable or has been deleted'
         elif 'Private video' in error_message:
             error_message = 'This video is private and cannot be accessed'
+        elif 'Failed to extract' in error_message:
+            error_message = 'Unable to process this video. Please try another video or try again later.'
         conversion_tasks[task_id] = {
             'status': 'error',
             'error': error_message
