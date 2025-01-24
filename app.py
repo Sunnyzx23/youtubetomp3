@@ -11,6 +11,7 @@ import zipfile
 import shutil
 import platform
 import tempfile
+import subprocess
 
 app = Flask(__name__)
 CORS(app, resources={r"/*": {"origins": "*"}})
@@ -32,43 +33,29 @@ logger = logging.getLogger(__name__)
 # 存储转换任务状态
 conversion_tasks = {}
 
-# 在文件顶部添加
-WORKSPACE_PATH = os.path.abspath(os.path.dirname(__file__))
-FFMPEG_DIR = WORKSPACE_PATH  # ffmpeg和ffprobe所在的目录
-FFMPEG_PATH = os.path.join(FFMPEG_DIR, 'ffmpeg')
-FFPROBE_PATH = os.path.join(FFMPEG_DIR, 'ffprobe')
-
-print(f"Workspace Path: {WORKSPACE_PATH}")
-print(f"FFmpeg Path: {FFMPEG_PATH}")
-print(f"FFprobe Path: {FFPROBE_PATH}")
+# 使用系统ffmpeg
+FFMPEG_PATH = 'ffmpeg'
+FFPROBE_PATH = 'ffprobe'
 
 def check_ffmpeg():
     """检查ffmpeg是否正确安装并支持mp3编码"""
     try:
         # 检查ffmpeg版本
-        result = os.popen(f"{FFMPEG_PATH} -version").read()
-        print(f"FFmpeg version info:\n{result}")
+        result = subprocess.run(['ffmpeg', '-version'], capture_output=True, text=True)
+        logger.info(f"FFmpeg version info:\n{result.stdout}")
         
         # 检查mp3编码器支持
-        result = os.popen(f"{FFMPEG_PATH} -codecs | grep mp3").read()
-        print(f"FFmpeg MP3 codec support:\n{result}")
+        result = subprocess.run(['ffmpeg', '-codecs'], capture_output=True, text=True)
+        logger.info(f"FFmpeg codecs info:\n{result.stdout}")
         
         return True
     except Exception as e:
-        print(f"FFmpeg check failed: {str(e)}")
+        logger.error(f"FFmpeg check failed: {str(e)}")
         return False
-
-# 检查ffmpeg和ffprobe
-for path in [FFMPEG_PATH, FFPROBE_PATH]:
-    if os.path.exists(path):
-        os.chmod(path, 0o755)
-        print(f"File exists and permissions set for: {path}")
-    else:
-        print(f"WARNING: File not found: {path}")
 
 # 在启动时检查ffmpeg
 if not check_ffmpeg():
-    print("WARNING: FFmpeg check failed, audio conversion may not work properly")
+    logger.error("WARNING: FFmpeg check failed, audio conversion may not work properly")
 
 class ProgressHook:
     def __init__(self, task_id):
@@ -92,14 +79,14 @@ class ProgressHook:
 def convert_to_mp3(input_file, output_file):
     """使用ffmpeg直接转换文件为MP3格式"""
     try:
-        cmd = f'{FFMPEG_PATH} -i "{input_file}" -vn -acodec libmp3lame -q:a 2 "{output_file}"'
-        print(f"Running conversion command: {cmd}")
-        result = os.system(cmd)
-        if result != 0:
-            raise Exception(f"FFmpeg conversion failed with exit code {result}")
+        cmd = ['ffmpeg', '-i', input_file, '-vn', '-acodec', 'libmp3lame', '-q:a', '2', output_file]
+        logger.info(f"Running conversion command: {' '.join(cmd)}")
+        result = subprocess.run(cmd, capture_output=True, text=True)
+        if result.returncode != 0:
+            raise Exception(f"FFmpeg conversion failed: {result.stderr}")
         return True
     except Exception as e:
-        print(f"Conversion error: {str(e)}")
+        logger.error(f"Conversion error: {str(e)}")
         return False
 
 def download_and_convert(url, task_id):
@@ -109,10 +96,9 @@ def download_and_convert(url, task_id):
         if not os.path.exists(task_dir):
             os.makedirs(task_dir)
             
-        # 第一步：只下载音频，不做转换
+        # 配置yt-dlp选项
         ydl_opts = {
             'format': 'bestaudio/best',
-            'ffmpeg_location': FFMPEG_DIR,
             'prefer_ffmpeg': True,
             'progress_hooks': [ProgressHook(task_id)],
             'outtmpl': f'{task_dir}/%(title)s.%(ext)s',
@@ -122,18 +108,12 @@ def download_and_convert(url, task_id):
         }
         
         # 打印调试信息
-        print(f"Current working directory: {os.getcwd()}")
-        print(f"Task directory: {task_dir}")
-        print(f"FFmpeg exists: {os.path.exists(FFMPEG_PATH)}")
-        print(f"FFprobe exists: {os.path.exists(FFPROBE_PATH)}")
-        
-        # 确保ffmpeg可执行
-        os.chmod(FFMPEG_PATH, 0o755)
-        os.chmod(FFPROBE_PATH, 0o755)
+        logger.info(f"Current working directory: {os.getcwd()}")
+        logger.info(f"Task directory: {task_dir}")
         
         # 下载文件
         with yt_dlp.YoutubeDL(ydl_opts) as ydl:
-            print("Starting download with yt-dlp...")
+            logger.info("Starting download with yt-dlp...")
             info = ydl.extract_info(url, download=True)
             title = info['title']
             
@@ -147,9 +127,9 @@ def download_and_convert(url, task_id):
         if not downloaded_file:
             raise Exception('Download failed: No file found')
             
-        # 第二步：手动转换为MP3
+        # 转换为MP3
         output_file = os.path.join(task_dir, f"{title}.mp3")
-        print(f"Converting {downloaded_file} to {output_file}")
+        logger.info(f"Converting {downloaded_file} to {output_file}")
         
         if not convert_to_mp3(downloaded_file, output_file):
             raise Exception('Conversion to MP3 failed')
