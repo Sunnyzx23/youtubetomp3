@@ -13,11 +13,20 @@ import platform
 import tempfile
 
 app = Flask(__name__)
-CORS(app)
-socketio = SocketIO(app, cors_allowed_origins="*", async_mode='eventlet')
+CORS(app, resources={r"/*": {"origins": "*"}})
+socketio = SocketIO(app, 
+    cors_allowed_origins="*",
+    async_mode='eventlet',
+    logger=True,
+    engineio_logger=True,
+    ping_timeout=60,
+    ping_interval=25,
+    max_http_buffer_size=1e8,
+    async_handlers=True
+)
 
 # 配置日志
-logging.basicConfig(level=logging.INFO)
+logging.basicConfig(level=logging.DEBUG)
 logger = logging.getLogger(__name__)
 
 # 存储转换任务状态

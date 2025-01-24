@@ -1,8 +1,12 @@
 let currentTaskId = null;
 const socket = io({
     path: '/socket.io',
-    transports: ['websocket'],
-    secure: true
+    transports: ['websocket', 'polling'],
+    secure: true,
+    reconnection: true,
+    reconnectionAttempts: 5,
+    reconnectionDelay: 1000,
+    autoConnect: true
 });
 
 // DOM elements
@@ -25,12 +29,19 @@ socket.on('progress', handleProgress);
 socket.on('complete', handleComplete);
 socket.on('error', handleError);
 socket.on('connect', () => {
-    console.log('WebSocket connected');
+    console.log('WebSocket connected successfully');
+    convertBtn.disabled = false;
+});
+
+socket.on('disconnect', () => {
+    console.log('WebSocket disconnected');
+    convertBtn.disabled = true;
+    showError('Connection lost. Please refresh the page.');
 });
 
 socket.on('connect_error', (error) => {
     console.error('WebSocket connection error:', error);
-    showError('Connection error, please refresh the page');
+    showError('Connection error. Please refresh the page.');
 });
 
 function startConversion() {
