@@ -1,5 +1,9 @@
 let currentTaskId = null;
-const socket = io();
+const socket = io({
+    path: '/socket.io',
+    transports: ['websocket'],
+    secure: true
+});
 
 // DOM elements
 const urlInput = document.getElementById('url');
@@ -20,6 +24,14 @@ downloadBtn.addEventListener('click', downloadFile);
 socket.on('progress', handleProgress);
 socket.on('complete', handleComplete);
 socket.on('error', handleError);
+socket.on('connect', () => {
+    console.log('WebSocket connected');
+});
+
+socket.on('connect_error', (error) => {
+    console.error('WebSocket connection error:', error);
+    showError('Connection error, please refresh the page');
+});
 
 function startConversion() {
     const url = urlInput.value.trim();

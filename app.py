@@ -1,5 +1,6 @@
 from flask import Flask, render_template, request, send_file, jsonify
 from flask_socketio import SocketIO, emit
+from flask_cors import CORS
 import yt_dlp
 import os
 import uuid
@@ -12,7 +13,8 @@ import platform
 import tempfile
 
 app = Flask(__name__)
-socketio = SocketIO(app)
+CORS(app)
+socketio = SocketIO(app, cors_allowed_origins="*", async_mode='eventlet')
 
 # 配置日志
 logging.basicConfig(level=logging.INFO)
