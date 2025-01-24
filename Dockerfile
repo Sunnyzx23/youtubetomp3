@@ -24,5 +24,5 @@ RUN mkdir -p downloads && chmod 755 downloads
 # 暴露端口
 EXPOSE 8000
 
-# 启动命令
-CMD ["gunicorn", "--worker-class", "eventlet", "-w", "1", "--bind", "0.0.0.0:8000", "app:app"]
+# 启动命令 - 更新gunicorn配置
+CMD ["gunicorn", "--worker-class", "eventlet", "-w", "1", "--bind", "0.0.0.0:8000", "--timeout", "120", "--keep-alive", "5", "--log-level", "debug", "app:app"]
